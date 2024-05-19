@@ -37,7 +37,7 @@
 
 It is possible to associate some metadata, a struct or class instance, with a route; on dispatch, the router sets the key `RAVEN.METADATA` in the Clack environment to the metadata instance.
 
-Please note that if you rely on this feature and use structs, you should restart the Lisp process when upgrading Raven in case the struct definition has changed.
+Please note that if you rely on this feature and use structs, you should restart the Lisp process on deploy in case the struct definition has changed.
 
 ```lisp
 (defparameter *router*
@@ -163,6 +163,44 @@ Or in case the property-list based syntax does not suit you, you can do somethin
     (setf (lack/response:response-body response)
           "Hello, World.")))
 
+```
+
+### Route introspection
+
+You can lookup route information for a given path; returns a `ROUTE-INFO` struct
+when a matching route is found, formatted with all relevant information.
+
+```lisp
+(funcall *router* '(:find-route "/lists/3af47d4f-e990-4ed0-9ba1-5c67c147fd36"))
+Route
+-----
+Name: TODO-LIST
+Pattern: /lists/:todo-list
+Path: /lists/3af47d4f-e990-4ed0-9ba1-5c67c147fd36
+Bindings: ((todo-list . 3af47d4f-e990-4ed0-9ba1-5c67c147fd36))
+Metadata: #S(ROUTE/SIMPLE
+             :METHODS (HEAD GET DELETE OPTIONS)
+             :ACCEPT NIL
+             :PROVIDE (text/html)
+             :BEFORE (#<FUNCTION TODO-APP/CONTROLLER::CACHE-CONTROL>
+                      #<FUNCTION TODO-APP/USER:REQUIRE-LOGIN>)
+             :AFTER NIL
+             :MAX-URI-LENGTH NIL
+             :MAX-CONTENT-LENGTH NIL
+             :GET #<FUNCTION (LAMBDA ()
+                               :IN
+                               "/home/jnewton/quicklisp/local-projects/vinland-todo-app/src/controller.lisp") {538813FB}>
+             :HEAD NIL
+             :POST NIL
+             :PUT NIL
+             :PATCH NIL
+             :DELETE #<FUNCTION (LAMBDA ()
+                                  :IN
+                                  "/home/jnewton/quicklisp/local-projects/vinland-todo-app/src/controller.lisp") {52F1093B}>
+             :OPTIONS NIL
+             :TRACE NIL
+             :CONNECT NIL)
+Documentation: To Do List resource
 ```
 
 ## Installation
