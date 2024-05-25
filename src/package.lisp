@@ -6,7 +6,6 @@
 (defpackage #:foo.lisp.raven
   (:use #:cl)
   (:export #:compile-router
-           #:dispatch-clack
            #:define-route
            #:define-route-metadata
            #:route-metadata

@@ -215,6 +215,15 @@ Run tests:
 (asdf:test-system :foo.lisp.raven)
 ```
 
+## Dependencies
+
+* [fast-generic-functions](https://github.com/marcoheisig/fast-generic-functions)
+* [uiop](https://gitlab.common-lisp.net/asdf/asdf/-/tree/master/uiop)
+
+### Tests
+
+* [rove](https://github.com/fukamachi/rove)
+
 ## Contributing
 
 Open an Issue or Pull Request on GitHub.
