@@ -5,11 +5,13 @@
 
 (defpackage #:foo.lisp.raven
   (:use #:cl)
-  (:export #:compile-router
+  (:export #:*fast-dispatch*
+           #:compile-router
            #:define-route
            #:define-route-metadata
            #:route-metadata
-           #:invalid-route
+           #:invalid-route-error
+           #:no-route-error
            #:%handle-request/fast
            #:%handle-request
            #:%make-route-metadata))

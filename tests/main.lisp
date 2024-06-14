@@ -200,17 +200,14 @@
          (ok (equalp response `(200 () ("Baar")))))))
 
   (testing
-   "Returns a default 404 text/plain response when there is no matching route"
+   "Signals NO-ROUTE-ERROR there is no matching route"
    (let* ((router (foo.lisp.raven:compile-router
                    `(("/" ,'baaz)
                      ("/baar" ,'baar)
                      ("/hello" ,'hello))))
           (app (funcall router :clack)))
-     (let ((response (funcall app '(:path-info "/bogus"))))
-       (ok response)
-       (ok (equalp response `(404 (:content-type "text/plain"
-                                   :content-length 9)
-                                  ("Not Found")))))))
+     (ok (signals (funcall app '(:path-info "/bogus"))
+                  'foo.lisp.raven:no-route-error))))
 
   (testing
    "Dispatches to a dynamic route"
@@ -349,12 +346,10 @@
    (let* ((router (foo.lisp.raven:compile-router
                    `(("/:foo-id" ,'foo))))
           (app (funcall router :clack)))
-     (let ((response (funcall app '(:path-info "/"))))
-       (ok response)
-       (ok (= 404 (first response))))
-     (let ((response (funcall app '(:path-info "//"))))
-       (ok response)
-       (ok (= 404 (first response))))
+     (ok (signals (funcall app '(:path-info "/"))
+                  'foo.lisp.raven:no-route-error))
+     (ok (signals (funcall app '(:path-info "//"))
+                  'foo.lisp.raven:no-route-error))
      (let ((response (funcall app '(:path-info "/bar"))))
        (ok response)
        (ok (equalp response `(200 () ("Foo: bar"))))))
@@ -362,21 +357,16 @@
    (let* ((router (foo.lisp.raven:compile-router
                    `(("/foo/:foo-id" ,'foo))))
           (app (funcall router :clack)))
-     (let ((response (funcall app '(:path-info "/bar"))))
-       (ok response)
-       (ok (= 404 (first response))))
-     (let ((response (funcall app '(:path-info "/bar/"))))
-       (ok response)
-       (ok (= 404 (first response))))
-     (let ((response (funcall app '(:path-info "/foo"))))
-       (ok response)
-       (ok (= 404 (first response))))
-     (let ((response (funcall app '(:path-info "/foo/"))))
-       (ok response)
-       (ok (= 404 (first response))))
-     (let ((response (funcall app '(:path-info "/foo//"))))
-       (ok response)
-       (ok (= 404 (first response))))
+     (ok (signals (funcall app '(:path-info "/bar"))
+                  'foo.lisp.raven:no-route-error))
+     (ok (signals (funcall app '(:path-info "/bar/"))
+                  'foo.lisp.raven:no-route-error))
+     (ok (signals (funcall app '(:path-info "/foo"))
+                  'foo.lisp.raven:no-route-error))
+     (ok (signals (funcall app '(:path-info "/foo/"))
+                  'foo.lisp.raven:no-route-error))
+     (ok (signals (funcall app '(:path-info "/foo//"))
+                  'foo.lisp.raven:no-route-error))
      (let ((response (funcall app '(:path-info "/foo/bar"))))
        (ok response)
        (ok (equalp response `(200 () ("Foo: bar"))))))))

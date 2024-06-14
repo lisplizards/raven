@@ -5,7 +5,7 @@
 
 (defvar *fast-dispatch* nil)
 
-(define-condition invalid-route (error)
+(define-condition invalid-route-error (error)
   ((route-name :initarg :route-name
                :type symbol)
    (options :initarg :options
@@ -17,7 +17,15 @@
                        route-name
                        options
                        original-error))))
-  (:documentation "Error condition signalled when the route definition is invalid"))
+  (:documentation "Error condition signalled when the route definition is invalid."))
+
+(define-condition no-route-error (simple-error)
+  ((path-info :initarg :path-info
+              :type (simple-array character (*))))
+  (:report (lambda (condition stream)
+             (declare (ignore condition))
+             (format stream "No route handler for request")))
+  (:documentation "Error signalled when the route cannot be matched."))
 
 (defstruct node
   (binding nil :type (or null keyword))
@@ -36,9 +44,7 @@
                        (route-info-path struct)
                        (route-info-bindings struct)
                        (node-route-metadata (route-info-node struct))
-                       (if (fboundp (node-route-name (route-info-node struct)))
-                           (documentation (node-route-name (route-info-node struct)) 'function)
-                           (get (node-route-name (route-info-node struct)) 'documentation))))))
+                       (documentation (node-route-name (route-info-node struct)) 'function)))))
   path-spec
   path
   bindings
@@ -54,8 +60,8 @@
         (bindings ())
         (path-spec-components ())
         (split-path (if (equalp path "/")
-                            '("")
-                            (cdr (uiop:split-string path :separator "/")))))
+                        '("")
+                        (cdr (uiop:split-string path :separator "/")))))
     (declare (type node current-node)
              (type list bindings path-spec-components)
              (type string-list split-path))
@@ -83,60 +89,6 @@
     (values current-node
             bindings
             path-spec-components)))
-
-(declaim (inline dispatch-clack))
-(defun dispatch-clack (root env fast-dispatch-p)
-  (declare (optimize (speed 3) (debug 0) (safety 0))
-           (type node root)
-           (type list env)
-           (type boolean fast-dispatch-p))
-  (let ((current-node root)
-        (bindings ())
-        (path-info (getf env :path-info)))
-    (declare (type node current-node)
-             (type binding-alist bindings)
-             (type (simple-array character (*)) path-info))
-    (let ((split-path (if (string= path-info "/")
-                          '("")
-                          (cdr (uiop:split-string path-info :separator "/")))))
-      (declare (type string-list split-path))
-      (dolist (path-component split-path)
-        (declare (type string path-component))
-        (let* ((node-children (node-children current-node))
-               (node (and node-children (gethash path-component node-children))))
-          (declare (type (or null hash-table) node-children)
-                   (type (or null node) node))
-          (if node
-              (setf current-node node)
-              (let* ((node (or (and node-children
-                                    (not (equal "" path-component))
-                                    (gethash :dynamic node-children))
-                               (return-from dispatch-clack
-                                 `(404
-                                   (:content-type "text/plain"
-                                    :content-length 9)
-                                   ("Not Found")))))
-                     (binding-name (node-binding node)))
-                (declare (type node node))
-                (push (cons binding-name path-component)
-                      bindings)
-                (setf current-node node))))))
-    (let ((route-name (or (node-route-name current-node)
-                          (return-from dispatch-clack
-                            `(404
-                              (:content-type "text/plain"
-                               :content-length 9)
-                              ("Not Found")))))
-          (route-metadata (node-route-metadata current-node)))
-      (declare (type symbol route-name))
-      (setf (getf env :raven.binding) bindings)
-      (and route-metadata
-           (setf (getf env :raven.metadata) route-metadata))
-      (if (fboundp route-name)
-          (funcall (symbol-function route-name) env)
-          (if fast-dispatch-p
-              (%handle-request/fast route-metadata route-name env)
-              (%handle-request route-metadata route-name env))))))
 
 (defun compile-router (router-spec &key (fast-dispatch *fast-dispatch*))
   (check-type router-spec list)
@@ -233,34 +185,75 @@
                              (node-route-metadata current-node) metadata)
                        (push route-name defined-routes)))))))
     (optimize-trie root)
-    #'(lambda (msg)
-        (declare (optimize (speed 3) (safety 0) (debug 0)))
-        (etypecase msg
-          (list
-           (let ((cmd (first msg)))
-             (ecase cmd
-               (:find-node (destructuring-bind (path)
-                               (rest msg)
-                             (check-type path string)
-                             (find-node root path)))
-               (:find-route (destructuring-bind (path)
-                                (rest msg)
-                              (check-type path string)
-                              (find-route root path)))
-               (:dispatch-clack (destructuring-bind (env)
-                                    (rest msg)
-                                  (declare (type list env))
-                                  (dispatch-clack root env fast-dispatch))))))
-          (keyword
-           (ecase msg
-             (:get-root
-              root)
-             (:clack
-              #'(lambda (env)
-                  (declare (optimize (speed 3) (safety 0) (debug 0))
-                           (type node root)
-                           (type list env))
-                  (dispatch-clack root env fast-dispatch)))))))))
+    (let ((*fast-dispatch* fast-dispatch))
+      (declare (type boolean *fast-dispatch*))
+      #'(lambda (msg)
+          (declare (optimize (speed 3) (safety 0) (debug 0)))
+          (etypecase msg
+            (list
+             (let ((cmd (first msg)))
+               (ecase cmd
+                 (:find-node (destructuring-bind (path)
+                                 (rest msg)
+                               (check-type path string)
+                               (find-node root path)))
+                 (:find-route (destructuring-bind (path)
+                                  (rest msg)
+                                (check-type path string)
+                                (find-route root path)))
+                 (:dispatch-clack (destructuring-bind (env)
+                                      (rest msg)
+                                    (declare (type list env))
+                                    (dispatch-clack root env))))))
+            (keyword
+             (ecase msg
+               (:get-root
+                root)
+               (:clack
+                #'(lambda (env)
+                    (declare (optimize (speed 3) (safety 0) (debug 0))
+                             (type node root)
+                             (type list env))
+                    (dispatch-clack root env))))))))))
+
+(defun dispatch-clack (root env)
+  (declare (optimize (speed 3) (debug 0) (safety 0))
+           (type node root)
+           (type list env))
+  (let ((current-node root)
+        (bindings ())
+        (path-info (getf env :path-info)))
+    (declare (type node current-node)
+             (type binding-alist bindings)
+             (type (simple-array character (*)) path-info))
+    (let ((split-path (if (string= path-info "/")
+                          '("")
+                          (cdr (uiop:split-string path-info :separator "/")))))
+      (declare (type string-list split-path))
+      (dolist (path-component split-path)
+        (declare (type string path-component))
+        (let* ((node-children (node-children current-node))
+               (node (and node-children (gethash path-component node-children))))
+          (declare (type (or null hash-table) node-children)
+                   (type (or null node) node))
+          (if node
+              (setf current-node node)
+              (let* ((node (or (and node-children
+                                    (not (equal "" path-component))
+                                    (gethash :dynamic node-children))
+                               (error 'no-route-error :path-info path-info)))
+                     (binding-name (node-binding node)))
+                (declare (type node node))
+                (push (cons binding-name path-component)
+                      bindings)
+                (setf current-node node))))))
+    (let ((route-name (or (node-route-name current-node)
+                          (error 'no-route-error :path-info path-info)))
+          (route-metadata (node-route-metadata current-node)))
+      (declare (type symbol route-name))
+      (setf (getf env :raven.metadata) route-metadata
+            (getf env :raven.binding) bindings)
+      (funcall (symbol-function route-name) env))))
 
 (defun copy-hash-table (hash-table)
   (declare (type hash-table hash-table))
@@ -339,31 +332,44 @@ route pattern. Intended for use in development and testing."
                                       (assert (eq meta-sym (type-of object)))
                                       object)
                         (error (e)
-                          (error 'invalid-route
+                          (error 'invalid-route-error
                                  :route-name route-name
                                  :options kwargs
                                  :original-error e)))))
-        (when documentation
-          (setf (get route-name 'documentation) documentation))
+        (setf (fdefinition route-name)
+              (lambda (env)
+                (declare (optimize (speed 3) (safety 0) (debug 0))
+                         (type list env))
+                (if *fast-dispatch*
+                    (%handle-request/fast metadata route-name env)
+                    (%handle-request metadata route-name env))))
         (setf (get route-name 'foo.lisp.raven:route-metadata)
               metadata)
+        (when documentation
+          (setf (documentation route-name 'function)
+                documentation))
         (when exportp
           (export route-name))
         route-name))))
 
 (defun define-route-metadata (route-name &rest kwargs &key &allow-other-keys)
   (check-type route-name symbol)
-  (let ((meta-sym (getf kwargs :meta)))
+  (let ((meta-sym (getf kwargs :meta))
+        (require-fboundp (if (member :fboundp kwargs)
+                             (getf kwargs :fboundp)
+                             t)))
     (check-type meta-sym symbol)
     (assert (null (getf kwargs :route-name))
             nil
             "ROUTE-NAME is not a valid route option")
-    (assert (fboundp route-name)
-            nil
-            "~A is missing a function value" route-name)
+    (check-type require-fboundp boolean)
+    (when require-fboundp
+      (assert (fboundp route-name)
+              nil
+              "ROUTE-NAME ~A is missing a function value" route-name))
     (assert (not (null kwargs)))
     (let ((options (loop for (key value) on kwargs by #'cddr
-                         unless (member value '(:meta))
+                         unless (member value '(:meta :fboundp))
                            collect key
                          collect value)))
       (let ((metadata (handler-case (let ((object (apply #'%make-route-metadata meta-sym
@@ -372,7 +378,7 @@ route pattern. Intended for use in development and testing."
                                       (assert (eq meta-sym (type-of object)))
                                       object)
                         (error (e)
-                          (error 'invalid-route
+                          (error 'invalid-route-error
                                  :route-name route-name
                                  :options kwargs
                                  :original-error e)))))
@@ -385,8 +391,8 @@ route pattern. Intended for use in development and testing."
 and returns a new instance of METADATA"))
 
 (defgeneric %handle-request (metadata route-name env)
-  (:documentation "Handles a request for the subprotocol associated with METADATA"))
+  (:documentation "Handles a request for the subprotocol associated with METADATA."))
 
 (defgeneric %handle-request/fast (metadata route-name env)
   (:generic-function-class fast-generic-functions:fast-generic-function)
-  (:documentation "Handles a request for the subprotocl associated with METADATA; a fast-generic-function"))
+  (:documentation "Handles a request for the subprotocol associated with METADATA; a fast-generic-function."))
