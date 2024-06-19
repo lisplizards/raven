@@ -1,7 +1,17 @@
 ;; Copyright (c) 2024 John Newton
 ;; SPDX-License-Identifier: Apache-2.0
 
-(in-package #:foo.lisp.raven/tests)
+(in-package #:foo.lisp.raven/tests/other)
+
+(defun baaz (env)
+  (declare (ignore env))
+  `(200 () ("Baaz!")))
+
+(defun quuxfoo (env)
+  (declare (ignore env))
+  `(200 () ("Quuxfoo")))
+
+(in-package #:foo.lisp.raven/tests/main)
 
 (defun baaz (env)
   (declare (ignore env))
@@ -165,7 +175,7 @@
    "Signals a simple-error when a handler symbol does not have a function value"
    (ok (signals (foo.lisp.raven:compile-router
                  `(("/" ,'bogus)))
-                'simple-error)))
+                'foo.lisp.raven:no-route-function-error)))
 
   (testing
    "Signals a simple-error when a handler symbol corresponds to more than one route"
@@ -173,6 +183,19 @@
                  `(("/foo" ,'quux)
                    ("/bar" ,'quux)))
                 'simple-error)))
+
+  (testing
+   "Signals a simple-error when there are symbols of the same name belonging to separate packages"
+   (ok (signals (foo.lisp.raven:compile-router
+                 `(("/" ,'baaz)
+                   ("/baar" ,'foo.lisp.raven/tests/other::baaz)))
+                'simple-error)))
+
+  (testing
+   "Allows specifying a route from another package (if it does not have the same symbol name)"
+   (ok (foo.lisp.raven:compile-router
+        `(("/" ,'foo)
+          ("/baar" ,'foo.lisp.raven/tests/other::baaz)))))
 
   (testing
    "Signals a simple-error when a binding occurs more than once"
@@ -408,40 +431,50 @@
 
 (deftest find-route
     (testing
-     "Returns a route-info struct for the specified path or returns NIL when the path has no route"
+     "Returns a find-route-result struct for the specified path or returns NIL when the path has no route"
      (let ((router (foo.lisp.raven:compile-router
                     `(("/foo" ,'foo)
                       ("/:baaz" ,'baaz)
                       ("/:baaz/bar" ,'bar)
                       ("/:baaz/foo/:quux/hello" ,'quux)))))
-       (ok (foo.lisp.raven::route-info-p (funcall router '(:find-route "/foo"))))
-       (ok (foo.lisp.raven::route-info-p (funcall router '(:find-route "/hello"))))
-       (ok (null (foo.lisp.raven::route-info-p (funcall router '(:find-route "/")))))
-       (ok (null (foo.lisp.raven::route-info-p (funcall router '(:find-route "/hello/")))))
-       (ok (foo.lisp.raven::route-info-p (funcall router '(:find-route "/hello/bar"))))
-       (ok (null (foo.lisp.raven::route-info-p (funcall router '(:find-route "/hello/bar/")))))
-       (ok (null (foo.lisp.raven::route-info-p (funcall router '(:find-route "/hello/world")))))
-       (ok (equal "/foo" (foo.lisp.raven::route-info-path-spec
+       (ok (foo.lisp.raven::find-route-result-p (funcall router '(:find-route "/foo"))))
+       (ok (foo.lisp.raven::find-route-result-p (funcall router '(:find-route "/hello"))))
+       (ok (null (foo.lisp.raven::find-route-result-p (funcall router '(:find-route "/")))))
+       (ok (null (foo.lisp.raven::find-route-result-p (funcall router '(:find-route "/hello/")))))
+       (ok (foo.lisp.raven::find-route-result-p (funcall router '(:find-route "/hello/bar"))))
+       (ok (null (foo.lisp.raven::find-route-result-p (funcall router '(:find-route "/hello/bar/")))))
+       (ok (null (foo.lisp.raven::find-route-result-p (funcall router '(:find-route "/hello/world")))))
+       (let ((result (funcall router '(:find-route "/foo"))))
+         (ok (equal "/foo" (foo.lisp.raven::route-info-path-spec
+                            (foo.lisp.raven::find-route-result-route-info
+                             result)))))
+       (ok (equal "/foo" (foo.lisp.raven::find-route-result-path
                           (funcall router '(:find-route "/foo")))))
-       (ok (equal "/foo" (foo.lisp.raven::route-info-path
-                          (funcall router '(:find-route "/foo")))))
-       (ok (equal "/:baaz" (foo.lisp.raven::route-info-path-spec
+       (let ((result (funcall router '(:find-route "/hello"))))
+         (ok (equal "/:baaz" (foo.lisp.raven::route-info-path-spec
+                              (foo.lisp.raven::find-route-result-route-info
+                               result)))))
+       (ok (equalp '((:|baaz| . "hello"))
+                   (foo.lisp.raven::find-route-result-bindings
+                    (funcall router '(:find-route "/hello")))))
+       (ok (equal "/hello" (foo.lisp.raven::find-route-result-path
                             (funcall router '(:find-route "/hello")))))
-       (ok (equalp '((:|baaz| . "hello")) (foo.lisp.raven::route-info-bindings
-                                           (funcall router '(:find-route "/hello")))))
-       (ok (equal "/hello" (foo.lisp.raven::route-info-path
-                            (funcall router '(:find-route "/hello")))))
-       (ok (equal "/:baaz/bar" (foo.lisp.raven::route-info-path-spec
+       (let ((result (funcall router '(:find-route "/hello/bar"))))
+         (ok (equal "/:baaz/bar" (foo.lisp.raven::route-info-path-spec
+                                  (foo.lisp.raven::find-route-result-route-info
+                                   result)))))
+       (ok (equalp '((:|baaz| . "hello"))
+                   (foo.lisp.raven::find-route-result-bindings
+                    (funcall router '(:find-route "/hello/bar")))))
+       (ok (equal "/hello/bar" (foo.lisp.raven::find-route-result-path
                                 (funcall router '(:find-route "/hello/bar")))))
-       (ok (equalp '((:|baaz| . "hello")) (foo.lisp.raven::route-info-bindings
-                                           (funcall router '(:find-route "/hello/bar")))))
-       (ok (equal "/hello/bar" (foo.lisp.raven::route-info-path
-                                (funcall router '(:find-route "/hello/bar")))))
-       (ok (equal "/hello/foo/foobar/hello" (foo.lisp.raven::route-info-path
+       (ok (equal "/hello/foo/foobar/hello" (foo.lisp.raven::find-route-result-path
                                              (funcall router '(:find-route "/hello/foo/foobar/hello")))))
-       (ok (equal "/:baaz/foo/:quux/hello" (foo.lisp.raven::route-info-path-spec
-                                            (funcall router '(:find-route "/hello/foo/foobar/hello")))))
+       (let ((result (funcall router '(:find-route "/hello/foo/foobar/hello"))))
+         (ok (equal "/:baaz/foo/:quux/hello"
+                    (foo.lisp.raven::route-info-path-spec
+                     (foo.lisp.raven::find-route-result-route-info
+                      result)))))
        (ok (equalp '((:|baaz| . "hello") (:|quux| . "foobar"))
-                   (foo.lisp.raven::route-info-bindings
+                   (foo.lisp.raven::find-route-result-bindings
                     (funcall router '(:find-route "/hello/foo/foobar/hello"))))))))
-

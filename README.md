@@ -1,17 +1,17 @@
 # raven
 
-> Prefix tree based router for Clack applications
+> Prefix tree based URL router for Clack applications
 
 <img title="Raven" alt="Raven" src="raven.svg" width="170px">
 
 > [!NOTE]
-> Raven depends on fast-generic-functions, which now requires a [patch](https://github.com/marcoheisig/fast-generic-functions/pull/16) in order to compile on SBCL.
+> Raven depends on fast-generic-functions, which requires a [patch](https://github.com/marcoheisig/fast-generic-functions/pull/16) in order to compile on recent versions of SBCL.
 
 ## Usage
 
 ### Basic example
 
-```lisp
+```common-lisp
 (defparameter *router*
   (foo.lisp.raven:compile-router
    `(("/" ,'root)
@@ -42,7 +42,7 @@ It is possible to associate some metadata, a struct or class instance, with a ro
 
 Please note that if you rely on this feature and use structs, you should restart the Lisp process on deploy in case the struct definition has changed.
 
-```lisp
+```common-lisp
 (defparameter *router*
   (foo.lisp.raven:compile-router
    `(("/" ,'root))))
@@ -78,7 +78,7 @@ As an alternative to dispatching to standard functions, you can use functions `%
 
 The [Vinland](https://github.com/foo-lisp/vinland) framework is based on use of this feature.
 
-```lisp
+```common-lisp
 (defparameter *router*
   (foo.lisp.raven:compile-router
    `(("/" ,'root))))
@@ -122,7 +122,7 @@ The [Vinland](https://github.com/foo-lisp/vinland) framework is based on use of 
 
 To avoid repeatedly specifying keyword `META` in your route definitions, you may prefer to define a wrapper function:
 
-```lisp
+```common-lisp
 (defun define-example-route (route-name &rest kwargs &key &allow-other-keys)
   (apply #'foo.lisp.raven:define-route route-name :meta 'example kwargs))
 
@@ -142,7 +142,7 @@ To avoid repeatedly specifying keyword `META` in your route definitions, you may
 
 Or in case the property-list based syntax does not suit you, you can do something like:
 
-```lisp
+```common-lisp
 (defun define-example-route (route-name &rest rest)
   (ecase (length rest)
     (1 (foo.lisp.raven:define-route route-name
@@ -173,7 +173,7 @@ Or in case the property-list based syntax does not suit you, you can do somethin
 You can lookup route information for a given path; returns a `ROUTE-INFO` struct
 when a matching route is found, formatted with all relevant information.
 
-```lisp
+```common-lisp
 (funcall *router* '(:find-route "/lists/3af47d4f-e990-4ed0-9ba1-5c67c147fd36"))
 Route
 -----
@@ -204,6 +204,12 @@ Metadata: #S(ROUTE/SIMPLE
              :TRACE NIL
              :CONNECT NIL)
 Documentation: To Do List resource
+```
+
+You can similarly list all routes matching a path prefix:
+
+```common-lisp
+(funcall *router* '(:list-routes "/lists"))
 ```
 
 ## Installation

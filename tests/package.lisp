@@ -3,5 +3,8 @@
 
 (in-package #:cl-user)
 
-(defpackage #:foo.lisp.raven/tests
+(defpackage #:foo.lisp.raven/tests/main
   (:use #:cl #:rove))
+
+(defpackage #:foo.lisp.raven/tests/other
+  (:use #:cl))

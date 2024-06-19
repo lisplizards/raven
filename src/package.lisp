@@ -5,13 +5,18 @@
 
 (defpackage #:foo.lisp.raven
   (:use #:cl)
-  (:export #:*fast-dispatch*
-           #:compile-router
+  (:export #:*fast-dispatch*)
+  (:export #:route-metadata-error
+           #:router-compilation-error
+           #:no-path-generator-error
+           #:no-route-function-error
+           #:no-route-error)
+  (:export #:route-metadata)
+  (:export #:route-path)
+  (:export #:compile-router
            #:define-route
-           #:define-route-metadata
-           #:route-metadata
-           #:invalid-route-error
-           #:no-route-error
-           #:%handle-request/fast
+           #:define-route-metadata)
+  (:export #:%handle-request/fast
            #:%handle-request
-           #:%make-route-metadata))
+           #:%make-route-metadata)
+  (:documentation "URL dispatching package for Clack applications."))
