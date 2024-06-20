@@ -4,6 +4,9 @@
 
 <img title="Raven" alt="Raven" src="raven.svg" width="170px">
 
+> [!NOTE]
+> Raven depends on fast-generic-functions, which now requires a [patch](https://github.com/marcoheisig/fast-generic-functions/pull/16) in order to compile on SBCL.
+
 ## Usage
 
 ### Basic example
