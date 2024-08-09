@@ -15,24 +15,23 @@
     (:content-type "text/plain")
     ("Gizmo")))
 
-(deftest routes ()
-  (testing
-   "Dispatches to the matching handler"
-   (flet ((app (env)
-            (declare (ignore env))
-            `(404
-              (:content-type "text/plain"
-               :content-length 9)
-              ("Not Found"))))
-     (let* ((app (funcall lack/middleware/raven:*lack-middleware-raven*
-                          #'app
-                          :routes `(("/gizmos" ,'gizmos)
-                                    ("/gizmos/:gizmo-id" ,'gizmo))))
-            (gizmos-response (funcall app '(:path-info "/gizmos" :request-method :GET)))
-            (gizmo-response (funcall app '(:path-info "/gizmos/xyz" :request-method :GET))))
-       (ok (= 200 (first gizmos-response)))
-       (ok (string= "Gizmos" (first (third gizmos-response))))
-       (ok (= 200 (first gizmo-response)))
-       (ok (string= "Gizmo" (first (third gizmo-response))))
-       (ok (signals (funcall app '(:path-info "/foobar" :request-method :GET))
-                    'foo.lisp.raven:no-route-error))))))
+(define-test routes
+    (define-test "Dispatches to the matching handler"
+        (flet ((empty-app (env)
+                 (declare (ignore env))
+                 `(404
+                   (:content-type "text/plain"
+                    :content-length 9)
+                   ("Not Found"))))
+          (let* ((app (funcall lack/middleware/raven:*lack-middleware-raven*
+                               #'empty-app
+                               :routes `(("/gizmos" ,'gizmos)
+                                         ("/gizmos/:gizmo-id" ,'gizmo))))
+                 (gizmos-response (funcall app '(:path-info "/gizmos" :request-method :GET)))
+                 (gizmo-response (funcall app '(:path-info "/gizmos/xyz" :request-method :GET))))
+            (true (= 200 (first gizmos-response)))
+            (true (string= "Gizmos" (first (third gizmos-response))))
+            (true (= 200 (first gizmo-response)))
+            (true (string= "Gizmo" (first (third gizmo-response))))
+            (fail (funcall app '(:path-info "/foobar" :request-method :GET))
+                  'foo.lisp.raven:no-route-error)))))

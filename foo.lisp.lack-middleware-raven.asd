@@ -22,7 +22,7 @@
   :author "John Newton"
   :license "Apache-2.0"
   :depends-on ("foo.lisp.lack-middleware-raven"
-               "rove")
+               "parachute")
   :components ((:module "tests"
                 :components
                 ((:module "middleware"
@@ -30,4 +30,4 @@
                   ((:file "main" :depends-on ("package"))
                    (:file "package"))))))
   :description "Test system for foo.lisp.lack-middleware-raven"
-  :perform (test-op (op c) (symbol-call :rove :run c)))
+  :perform (test-op (op c) (symbol-call :parachute :test :lack/middleware/raven/tests/main)))

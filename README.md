@@ -231,7 +231,7 @@ Run tests:
 
 ### Tests
 
-* [rove](https://github.com/fukamachi/rove)
+* [parachute](https://github.com/Shinmera/parachute)
 
 ## Contributing
 

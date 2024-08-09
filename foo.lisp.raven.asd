@@ -22,10 +22,10 @@
   :author "John Newton"
   :license "Apache-2.0"
   :depends-on ("foo.lisp.raven"
-               "rove")
+               "parachute")
   :components ((:module "tests"
                 :components
                 ((:file "main" :depends-on ("package"))
                  (:file "package"))))
   :description "Test system for foo.lisp.raven"
-  :perform (test-op (op c) (symbol-call :rove :run c)))
+  :perform (test-op (op c) (symbol-call :parachute :test :foo.lisp.raven/tests/main)))

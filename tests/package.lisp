@@ -4,7 +4,7 @@
 (in-package #:cl-user)
 
 (defpackage #:foo.lisp.raven/tests/main
-  (:use #:cl #:rove))
+  (:use #:cl #:parachute))
 
 (defpackage #:foo.lisp.raven/tests/other
   (:use #:cl))

@@ -4,4 +4,4 @@
 (in-package #:cl-user)
 
 (defpackage #:lack/middleware/raven/tests/main
-  (:use #:cl #:rove))
+  (:use #:cl #:parachute))
